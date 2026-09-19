@@ -1,14 +1,25 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 
+$latestVersion = '256.0.3';
+$currentVersion = $_GET['version'] ?? $latestVersion;
+$forceUpdate = false;
+$updateRequired = version_compare($currentVersion, $latestVersion, '<');
+
+if ($updateRequired) {
+    $message = 'new version available';
+} else {
+    $message = 'up to date';
+}
+
 echo json_encode([
     'status' => 'success',
     'success' => true,
-    'update_required' => false,
-    'force_update' => false,
-    'latest_version' => '256.0.3',
-    'version' => '256.0.3',
+    'update_required' => $updateRequired,
+    'force_update' => $forceUpdate,
+    'latest_version' => $latestVersion,
+    'version' => $currentVersion,
     'app' => 'Gooobet',
-    'apk_url' => 'https://myapi-production-6eda.up.railway.app/api/android/apk/Gooobet.apk',
-    'message' => 'up to date'
+    'apk_url' => 'https://api-production-69b69.up.railway.app/api/android/apk/Gooobet.apk',
+    'message' => $message,
 ], JSON_UNESCAPED_SLASHES);
