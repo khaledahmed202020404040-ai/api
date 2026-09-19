@@ -1,4 +1,13 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $uri = $uri === '' ? '/' : $uri;
 $rootDir = __DIR__;
@@ -12,6 +21,18 @@ if ($normalized === '/' || $normalized === '') {
     $candidates[] = $rootDir . '/' . ltrim($normalized, '/');
     $candidates[] = $rootDir . str_replace('/', DIRECTORY_SEPARATOR, $normalized);
     $candidates[] = $rootDir . '/api' . $normalized;
+
+    if (preg_match('#/$#', $normalized) === 1) {
+        $indexPath = rtrim($normalized, '/') . '/index.php';
+        $candidates[] = $rootDir . '/' . ltrim($indexPath, '/');
+        $candidates[] = $rootDir . '/api' . $indexPath;
+    }
+
+    if (preg_match('#/index\.php$#', $normalized) !== 1) {
+        $dirIndex = dirname($normalized) . '/index.php';
+        $candidates[] = $rootDir . '/' . ltrim($dirIndex, '/');
+        $candidates[] = $rootDir . '/api' . $dirIndex;
+    }
 }
 
 foreach ($candidates as $candidate) {
