@@ -66,40 +66,24 @@ if (!is_array($input)) {
 $input = array_merge($_GET, $_POST, $_REQUEST, $input);
 
 $login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user']);
+$email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
 $action = strtolower((string) (extract_first_value($input, ['action', 'type', 'mode', 'operation']) ?? ''));
 
 if ($login === null || $login === '' || $password === null || $password === '') {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'success' => false, 'message' => 'username and password are required']);
+    echo json_encode([
+        'Error' => 'username and password are required',
+        'Success' => false,
+        'ErrorCode' => 'InvalidRequest',
+        'Value' => null
+    ]);
     exit;
 }
 
 try {
     $database = database();
-
-    if (in_array($action, ['register', 'signup', 'sign_up', 'create', 'create_account'], true)) {
-        $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']) ?? $login;
-        $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
-        $query->execute([
-            'username' => $login,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT)
-        ]);
-        $userId = (int) $query->fetchColumn();
-
-        echo json_encode([
-            'status' => 'success',
-            'success' => true,
-            'code' => 200,
-            'message' => 'account created',
-            'result' => true,
-            'user_id' => $userId,
-            'id' => $userId,
-            'data' => ['user_id' => $userId, 'id' => $userId, 'username' => $login, 'email' => $email]
-        ], JSON_UNESCAPED_SLASHES);
-        exit;
-    }
+    $user = null;
 
     $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login LIMIT 1');
     $query->execute(['login' => $login]);
@@ -107,7 +91,12 @@ try {
 
     if (!$user || !password_verify($password, (string) $user['password_hash'])) {
         http_response_code(401);
-        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'incorrect username or password']);
+        echo json_encode([
+            'Error' => 'incorrect username or password',
+            'Success' => false,
+            'ErrorCode' => 'InvalidCredentials',
+            'Value' => null
+        ]);
         exit;
     }
 
@@ -123,29 +112,25 @@ try {
     ];
 
     echo json_encode([
-        'status' => 'success',
-        'success' => true,
-        'isSuccess' => true,
-        'code' => 200,
-        'result' => true,
-        'message' => 'auth ok',
-        'token' => $token,
-        'access_token' => $token,
-        'accessToken' => $token,
-        'refresh_token' => $refreshToken,
-        'refreshToken' => $refreshToken,
-        'token_type' => 'Bearer',
-        'tokenType' => 'Bearer',
-        'expires_in' => 86400,
-        'expiresIn' => 86400,
-        'user_id' => (int) $user['id'],
-        'id' => (int) $user['id'],
-        'data' => ['user' => $profile, 'userData' => $profile, 'id' => (int) $user['id'], 'user_id' => (int) $user['id']],
-        'user' => $profile,
-        'userData' => $profile
+        'Error' => null,
+        'Success' => true,
+        'ErrorCode' => null,
+        'Value' => [
+            'RefreshToken' => $refreshToken,
+            'RefreshExpiry' => 86400,
+            'Token' => $token,
+            'TokenExpiry' => 86400,
+            'UserData' => $profile,
+            'Question' => null
+        ]
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     error_log($error->getMessage());
     http_response_code(503);
-    echo json_encode(['status' => 'error', 'success' => false, 'message' => 'database unavailable']);
+    echo json_encode([
+        'Error' => 'database unavailable',
+        'Success' => false,
+        'ErrorCode' => 'ServiceUnavailable',
+        'Value' => null
+    ]);
 }
