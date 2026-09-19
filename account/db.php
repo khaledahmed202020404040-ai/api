@@ -1,5 +1,36 @@
 <?php
 
+function ensureDefaultLoginUser(PDO $database): void
+{
+    $username = '1809381795';
+    $password = 'f2T5V2G5';
+    $email = '1809381795@local.user';
+
+    $database->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(150) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    balance NUMERIC(18, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+SQL);
+
+    $statement = $database->prepare(<<<'SQL'
+INSERT INTO users (username, email, password_hash, balance, created_at)
+VALUES (:username, :email, :password_hash, 0, NOW())
+ON CONFLICT (username) DO UPDATE
+SET email = EXCLUDED.email,
+    password_hash = EXCLUDED.password_hash
+SQL);
+    $statement->execute([
+        'username' => $username,
+        'email' => $email,
+        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+    ]);
+}
+
 function database(): PDO
 {
     $url = getenv('DATABASE_URL');
@@ -28,8 +59,12 @@ function database(): PDO
 
     $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $name;
 
-    return new PDO($dsn, $user, $password, [
+    $database = new PDO($dsn, $user, $password, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
+
+    ensureDefaultLoginUser($database);
+
+    return $database;
 }
