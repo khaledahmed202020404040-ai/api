@@ -71,8 +71,10 @@ if ($email === null || $email === '') {
     $email = $username ?? '';
 }
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
+$registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'type', 'mode']) ?? ''));
+$oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click'], true);
 
-if ($username === null || $username === '' || $email === '' || $password === null || $password === '') {
+if (!$oneClickRegistration && ($username === null || $username === '' || $email === '' || $password === null || $password === '')) {
     http_response_code(400);
     echo json_encode([
         'Error' => 'username, email and password are required',
@@ -88,6 +90,29 @@ if ($username === null || $username === '' || $email === '' || $password === nul
 
 try {
     $database = database();
+
+    if ($oneClickRegistration && ($username === null || $username === '' || $password === null || $password === '')) {
+        $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        if ($password === null || $password === '') {
+            $password = '';
+            for ($index = 0; $index < 8; $index++) {
+                $password .= $characters[random_int(0, strlen($characters) - 1)];
+            }
+        }
+
+        if ($username === null || $username === '') {
+            do {
+                $username = (string) random_int(1000000000, 9999999999);
+                $exists = $database->prepare('SELECT 1 FROM users WHERE username = :username LIMIT 1');
+                $exists->execute(['username' => $username]);
+            } while ($exists->fetchColumn());
+        }
+    }
+
+    if ($oneClickRegistration && ($email === null || $email === '')) {
+        $email = $username . '@local.user';
+    }
+
     $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
     $query->execute([
         'username' => $username,
@@ -106,20 +131,44 @@ try {
         'balance' => 0
     ];
 
+    $registrationData = [
+        'userId' => $username,
+        'id' => $userId,
+        'username' => $username,
+        'login' => $username,
+        'password' => $password,
+        'accessToken' => $token,
+        'refreshToken' => $refreshToken,
+        'expiresIn' => 86400,
+        'token' => $token,
+        'Authorization' => 'Bearer ' . $token,
+        'user' => $profile,
+    ];
+
     echo json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
             'User' => [
-                'UserId' => $userId,
+                'UserId' => $username,
+                'Username' => $username,
                 'Password' => $password,
                 'Message' => 'account created'
             ],
             'Form' => [
                 'Errors' => []
-            ]
-        ]
+            ],
+            'UserData' => $profile,
+            'Token' => $token,
+            'RefreshToken' => $refreshToken,
+            'Authorization' => 'Bearer ' . $token,
+            'accessToken' => $token,
+            'refreshToken' => $refreshToken,
+            'expiresIn' => 86400,
+            'data' => $registrationData,
+        ],
+        'data' => $registrationData
     ], JSON_UNESCAPED_SLASHES);
 } catch (PDOException $error) {
     http_response_code($error->getCode() === '23505' ? 409 : 503);
