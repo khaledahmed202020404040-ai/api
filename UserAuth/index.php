@@ -1,6 +1,15 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../db.php';
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+require_once __DIR__ . '/../account/db.php';
 
 function extract_first_value(array $source, array $keys): ?string
 {
@@ -72,7 +81,12 @@ $action = strtolower((string) (extract_first_value($input, ['action', 'type', 'm
 
 if ($login === null || $login === '' || $password === null || $password === '') {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'success' => false, 'message' => 'username and password are required']);
+    echo json_encode([
+        'Error' => 'username and password are required',
+        'Success' => false,
+        'ErrorCode' => 'InvalidRequest',
+        'Value' => null,
+    ]);
     exit;
 }
 
@@ -80,48 +94,18 @@ try {
     $database = database();
     $user = null;
 
-    $registrationAction = in_array($action, ['register', 'signup', 'sign_up', 'create', 'create_account'], true);
-    $registrationFields = $email !== null && $email !== '' && $email !== $login;
-
-    if ($registrationAction || $registrationFields) {
-        $email = $email ?? $login;
-        $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
-        $query->execute([
-            'username' => $login,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT)
-        ]);
-        $userId = (int) $query->fetchColumn();
-
-        $user = [
-            'id' => $userId,
-            'username' => $login,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-            'balance' => 0
-        ];
-    }
-
-    if (!$user) {
-        $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login LIMIT 1');
-        $query->execute(['login' => $login]);
-        $user = $query->fetch();
-    }
-
-    if (!$user) {
-        $accountEmail = $email ?? $login;
-        $create = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id, username, email, password_hash, balance');
-        $create->execute([
-            'username' => $login,
-            'email' => $accountEmail,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT)
-        ]);
-        $user = $create->fetch();
-    }
+    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login LIMIT 1');
+    $query->execute(['login' => $login]);
+    $user = $query->fetch();
 
     if (!$user || !password_verify($password, (string) $user['password_hash'])) {
         http_response_code(401);
-        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'incorrect username or password']);
+        echo json_encode([
+            'Error' => 'incorrect username or password',
+            'Success' => false,
+            'ErrorCode' => 'InvalidCredentials',
+            'Value' => null,
+        ]);
         exit;
     }
 
@@ -133,33 +117,53 @@ try {
         'userId' => (int) $user['id'],
         'username' => $user['username'],
         'email' => $user['email'],
-        'balance' => (float) $user['balance']
+        'balance' => (float) $user['balance'],
+    ];
+
+    $bearerToken = 'Bearer ' . $token;
+    $loginData = [
+        'userId' => (int) $user['id'],
+        'accessToken' => $token,
+        'refreshToken' => $refreshToken,
+        'expiresIn' => 86400,
+        'token' => $token,
+        'tokenType' => 'Bearer',
+        'Authorization' => $bearerToken,
+        'authorization' => $bearerToken,
+        'user' => $profile,
+        'userData' => $profile,
+        'user_id' => (int) $user['id'],
+        'id' => (int) $user['id'],
     ];
 
     echo json_encode([
-        'status' => 'success',
-        'success' => true,
-        'isSuccess' => true,
-        'code' => 200,
-        'result' => true,
-        'message' => 'auth ok',
-        'token' => $token,
-        'access_token' => $token,
-        'accessToken' => $token,
-        'refresh_token' => $refreshToken,
-        'refreshToken' => $refreshToken,
-        'token_type' => 'Bearer',
-        'tokenType' => 'Bearer',
-        'expires_in' => 86400,
-        'expiresIn' => 86400,
-        'user_id' => (int) $user['id'],
-        'id' => (int) $user['id'],
-        'data' => ['user' => $profile, 'userData' => $profile, 'id' => (int) $user['id'], 'user_id' => (int) $user['id']],
-        'user' => $profile,
-        'userData' => $profile
+        'Error' => null,
+        'Success' => true,
+        'ErrorCode' => null,
+        'Value' => [
+            'RefreshToken' => $refreshToken,
+            'RefreshExpiry' => 86400,
+            'Token' => $token,
+            'TokenExpiry' => 86400,
+            'UserData' => $profile,
+            'Question' => null,
+            'Authorization' => $bearerToken,
+            'authorization' => $bearerToken,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
+            'accessToken' => $token,
+            'refreshToken' => $refreshToken,
+            'expiresIn' => 86400,
+            'data' => $loginData,
+        ],
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     error_log($error->getMessage());
     http_response_code(503);
-    echo json_encode(['status' => 'error', 'success' => false, 'message' => 'database unavailable']);
+    echo json_encode([
+        'Error' => 'database unavailable',
+        'Success' => false,
+        'ErrorCode' => 'ServiceUnavailable',
+        'Value' => null,
+    ]);
 }
