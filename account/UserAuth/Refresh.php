@@ -31,6 +31,7 @@ if ($refreshToken === '') {
 }
 
 $token = hash('sha256', 'cairo-city:' . $refreshToken . ':' . time());
+$bearerToken = 'Bearer ' . $token;
 
 echo json_encode([
     'Error' => null,
@@ -40,6 +41,8 @@ echo json_encode([
         'TokenExpiry' => 86400,
         'RefreshToken' => $refreshToken,
         'Token' => $token,
+        'Authorization' => $bearerToken,
+        'authorization' => $bearerToken,
     ],
 ], JSON_UNESCAPED_SLASHES);
 exit;
