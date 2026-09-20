@@ -118,7 +118,7 @@ try {
         }
     }
 
-    if ($oneClickRegistration && ($email === null || $email === '')) {
+    if ($oneClickRegistration) {
         $email = $username . '@local.user';
     }
 
