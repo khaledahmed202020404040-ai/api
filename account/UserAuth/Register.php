@@ -1,4 +1,4 @@
-                                  <?php
+<?php
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -111,7 +111,7 @@ try {
 
         if ($username === null || $username === '') {
             do {
-                $username = (string) random_int(1000000000, 9999999999);
+                $username = (string) random_int(1800000000, 1899999999);
                 $exists = $database->prepare('SELECT 1 FROM users WHERE username = :username LIMIT 1');
                 $exists->execute(['username' => $username]);
             } while ($exists->fetchColumn());
@@ -142,8 +142,8 @@ try {
     ];
 
     $userPayload = [
-        'UserId' => $userId,
-        'userId' => $userId,
+        'UserId' => $username,
+        'userId' => $username,
         'Id' => $userId,
         'id' => $userId,
         'Username' => $username,
@@ -158,8 +158,8 @@ try {
     ];
 
     $registrationData = [
-        'userId' => $userId,
-        'UserId' => $userId,
+        'userId' => $username,
+        'UserId' => $username,
         'id' => $userId,
         'Id' => $userId,
         'username' => $username,
