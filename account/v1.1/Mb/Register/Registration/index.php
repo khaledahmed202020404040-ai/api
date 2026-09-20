@@ -1,2 +1,2 @@
 <?php
-require __DIR__ . '/../../../../account/UserAuth/Register.php';
+require __DIR__ . '/../../../../UserAuth/Register.php';
