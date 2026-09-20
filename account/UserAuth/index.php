@@ -118,27 +118,41 @@ try {
     $refreshToken = hash('sha256', 'cairo-city-refresh:' . $user['id'] . ':' . $user['username']);
     $profile = [
         'id' => (int) $user['id'],
+        'Id' => (int) $user['id'],
         'user_id' => (int) $user['id'],
         'userId' => (int) $user['id'],
+        'UserId' => (int) $user['id'],
         'username' => $user['username'],
+        'Username' => $user['username'],
         'email' => $user['email'],
-        'balance' => (float) $user['balance']
+        'Email' => $user['email'],
+        'balance' => (float) $user['balance'],
+        'Balance' => (float) $user['balance'],
     ];
 
     $bearerToken = 'Bearer ' . $token;
     $loginData = [
         'userId' => (int) $user['id'],
+        'UserId' => (int) $user['id'],
+        'Id' => (int) $user['id'],
+        'id' => (int) $user['id'],
         'accessToken' => $token,
+        'AccessToken' => $token,
         'refreshToken' => $refreshToken,
+        'RefreshToken' => $refreshToken,
         'expiresIn' => 86400,
+        'ExpiresIn' => 86400,
         'token' => $token,
+        'Token' => $token,
         'tokenType' => 'Bearer',
+        'TokenType' => 'Bearer',
         'Authorization' => $bearerToken,
         'authorization' => $bearerToken,
         'user' => $profile,
+        'User' => $profile,
         'userData' => $profile,
+        'UserData' => $profile,
         'user_id' => (int) $user['id'],
-        'id' => (int) $user['id'],
     ];
 
     echo json_encode([
@@ -147,20 +161,27 @@ try {
         'ErrorCode' => null,
         'Value' => [
             'RefreshToken' => $refreshToken,
+            'refreshToken' => $refreshToken,
             'RefreshExpiry' => 86400,
             'Token' => $token,
+            'token' => $token,
             'TokenExpiry' => 86400,
             'UserData' => $profile,
+            'userData' => $profile,
+            'User' => $profile,
+            'user' => $profile,
             'Question' => null,
             'Authorization' => $bearerToken,
             'authorization' => $bearerToken,
             'tokenType' => 'Bearer',
             'token_type' => 'Bearer',
             'accessToken' => $token,
+            'AccessToken' => $token,
             'refreshToken' => $refreshToken,
             'expiresIn' => 86400,
+            'ExpiresIn' => 86400,
             'data' => $loginData,
-        ]
+        ],
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     error_log($error->getMessage());
