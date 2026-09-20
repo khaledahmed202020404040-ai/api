@@ -18,7 +18,7 @@ if (!is_array($input)) {
     $input = [];
 }
 
-$refreshToken = trim((string) ($input['RefreshToken'] ?? $input['refreshToken'] ?? $_POST['RefreshToken'] ?? ''));
+$refreshToken = trim((string) ($input['RefreshToken'] ?? $input['refreshToken'] ?? $input['refresh_token'] ?? $_POST['RefreshToken'] ?? $_POST['refreshToken'] ?? ''));
 if ($refreshToken === '') {
     http_response_code(400);
     echo json_encode([
@@ -33,16 +33,45 @@ if ($refreshToken === '') {
 $token = hash('sha256', 'cairo-city:' . $refreshToken . ':' . time());
 $bearerToken = 'Bearer ' . $token;
 
+$profile = [
+    'id' => 0,
+    'Id' => 0,
+    'userId' => 0,
+    'UserId' => 0,
+    'username' => 'guest',
+    'Username' => 'guest',
+    'email' => null,
+    'Email' => null,
+    'balance' => 0.0,
+    'Balance' => 0.0,
+];
+
+$payload = [
+    'TokenExpiry' => 86400,
+    'RefreshToken' => $refreshToken,
+    'refreshToken' => $refreshToken,
+    'RefreshExpiry' => 86400,
+    'Token' => $token,
+    'token' => $token,
+    'Authorization' => $bearerToken,
+    'authorization' => $bearerToken,
+    'accessToken' => $token,
+    'AccessToken' => $token,
+    'refreshToken' => $refreshToken,
+    'expiresIn' => 86400,
+    'ExpiresIn' => 86400,
+    'tokenType' => 'Bearer',
+    'TokenType' => 'Bearer',
+    'UserData' => $profile,
+    'userData' => $profile,
+    'User' => $profile,
+    'user' => $profile,
+];
+
 echo json_encode([
     'Error' => null,
     'Success' => true,
     'ErrorCode' => null,
-    'Value' => [
-        'TokenExpiry' => 86400,
-        'RefreshToken' => $refreshToken,
-        'Token' => $token,
-        'Authorization' => $bearerToken,
-        'authorization' => $bearerToken,
-    ],
+    'Value' => $payload,
 ], JSON_UNESCAPED_SLASHES);
 exit;
