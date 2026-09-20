@@ -142,8 +142,8 @@ try {
     ];
 
     $userPayload = [
-        'UserId' => $username,
-        'userId' => $username,
+        'UserId' => $userId,
+        'userId' => $userId,
         'Id' => $userId,
         'id' => $userId,
         'Username' => $username,
@@ -158,8 +158,8 @@ try {
     ];
 
     $registrationData = [
-        'userId' => $username,
-        'UserId' => $username,
+        'userId' => $userId,
+        'UserId' => $userId,
         'id' => $userId,
         'Id' => $userId,
         'username' => $username,
@@ -182,22 +182,31 @@ try {
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
-            'User' => $userPayload,
-            'Form' => ['Errors' => []],
-            'UserData' => $profile,
-            'userData' => $profile,
-            'Token' => $token,
+            'User' => $profile,
+            'UserId' => $username,
+            'userId' => $username,
+            'Login' => $username,
+            'login' => $username,
+            'Username' => $username,
+            'username' => $username,
             'RefreshToken' => $refreshToken,
+            'RefreshExpiry' => 86400,
+            'Token' => $token,
+            'TokenExpiry' => 86400,
+            'UserData' => $profile,
+            'Question' => null,
             'Authorization' => 'Bearer ' . $token,
             'authorization' => 'Bearer ' . $token,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
             'accessToken' => $token,
             'refreshToken' => $refreshToken,
             'expiresIn' => 86400,
-            'tokenType' => 'Bearer',
-            'token_type' => 'Bearer',
             'data' => $registrationData,
         ],
-        'data' => $registrationData,
+        'UserId' => $username,
+        'Login' => $username,
+        'Username' => $username,
     ], JSON_UNESCAPED_SLASHES);
 } catch (PDOException $error) {
     http_response_code($error->getCode() === '23505' ? 409 : 503);
