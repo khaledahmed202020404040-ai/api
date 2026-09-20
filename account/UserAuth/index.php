@@ -69,6 +69,8 @@ $login = extract_first_value($input, ['username', 'user_name', 'userName', 'user
 $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
 $action = strtolower((string) (extract_first_value($input, ['action', 'type', 'mode', 'operation']) ?? ''));
+$registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'action', 'type', 'mode', 'operation']) ?? ''));
+$oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click'], true);
 
 if ($login === null || $login === '' || $password === null || $password === '') {
     http_response_code(400);
@@ -88,6 +90,18 @@ try {
     $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login LIMIT 1');
     $query->execute(['login' => $login]);
     $user = $query->fetch();
+
+    if (!$user && $oneClickRegistration) {
+        $registrationEmail = ($email !== null && $email !== '') ? $email : $login . '@local.user';
+        $create = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) ON CONFLICT (username) DO NOTHING');
+        $create->execute([
+            'username' => $login,
+            'email' => $registrationEmail,
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+        ]);
+        $query->execute(['login' => $login]);
+        $user = $query->fetch();
+    }
 
     if (!$user || !password_verify($password, (string) $user['password_hash'])) {
         http_response_code(401);
@@ -111,6 +125,22 @@ try {
         'balance' => (float) $user['balance']
     ];
 
+    $bearerToken = 'Bearer ' . $token;
+    $loginData = [
+        'userId' => (int) $user['id'],
+        'accessToken' => $token,
+        'refreshToken' => $refreshToken,
+        'expiresIn' => 86400,
+        'token' => $token,
+        'tokenType' => 'Bearer',
+        'Authorization' => $bearerToken,
+        'authorization' => $bearerToken,
+        'user' => $profile,
+        'userData' => $profile,
+        'user_id' => (int) $user['id'],
+        'id' => (int) $user['id'],
+    ];
+
     echo json_encode([
         'Error' => null,
         'Success' => true,
@@ -121,7 +151,15 @@ try {
             'Token' => $token,
             'TokenExpiry' => 86400,
             'UserData' => $profile,
-            'Question' => null
+            'Question' => null,
+            'Authorization' => $bearerToken,
+            'authorization' => $bearerToken,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
+            'accessToken' => $token,
+            'refreshToken' => $refreshToken,
+            'expiresIn' => 86400,
+            'data' => $loginData,
         ]
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
