@@ -1,5 +1,14 @@
-<?php
+                                  <?php
 header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 require_once __DIR__ . '/../db.php';
 
 function extract_first_value(array $source, array $keys): ?string
@@ -82,9 +91,9 @@ if (!$oneClickRegistration && ($username === null || $username === '' || $email 
         'ErrorCode' => 'InvalidRequest',
         'Value' => [
             'User' => null,
-            'Form' => ['Errors' => []]
-        ]
-    ]);
+            'Form' => ['Errors' => []],
+        ],
+    ], JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -117,23 +126,42 @@ try {
     $query->execute([
         'username' => $username,
         'email' => $email,
-        'password_hash' => password_hash($password, PASSWORD_DEFAULT)
+        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
     ]);
     $userId = (int) $query->fetchColumn();
     $token = hash('sha256', 'cairo-city:' . $userId . ':' . $username);
     $refreshToken = hash('sha256', 'cairo-city-refresh:' . $userId . ':' . $username);
+
     $profile = [
         'id' => $userId,
         'user_id' => $userId,
         'userId' => $userId,
         'username' => $username,
         'email' => $email,
-        'balance' => 0
+        'balance' => 0,
+    ];
+
+    $userPayload = [
+        'UserId' => $userId,
+        'userId' => $userId,
+        'Id' => $userId,
+        'id' => $userId,
+        'Username' => $username,
+        'username' => $username,
+        'Password' => $password,
+        'password' => $password,
+        'Login' => $username,
+        'login' => $username,
+        'Email' => $email,
+        'email' => $email,
+        'Message' => 'account created',
     ];
 
     $registrationData = [
-        'userId' => $username,
+        'userId' => $userId,
+        'UserId' => $userId,
         'id' => $userId,
+        'Id' => $userId,
         'username' => $username,
         'login' => $username,
         'password' => $password,
@@ -142,7 +170,11 @@ try {
         'expiresIn' => 86400,
         'token' => $token,
         'Authorization' => 'Bearer ' . $token,
+        'authorization' => 'Bearer ' . $token,
         'user' => $profile,
+        'UserData' => $profile,
+        'userData' => $profile,
+        'User' => $userPayload,
     ];
 
     echo json_encode([
@@ -150,25 +182,22 @@ try {
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
-            'User' => [
-                'UserId' => $username,
-                'Username' => $username,
-                'Password' => $password,
-                'Message' => 'account created'
-            ],
-            'Form' => [
-                'Errors' => []
-            ],
+            'User' => $userPayload,
+            'Form' => ['Errors' => []],
             'UserData' => $profile,
+            'userData' => $profile,
             'Token' => $token,
             'RefreshToken' => $refreshToken,
             'Authorization' => 'Bearer ' . $token,
+            'authorization' => 'Bearer ' . $token,
             'accessToken' => $token,
             'refreshToken' => $refreshToken,
             'expiresIn' => 86400,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
             'data' => $registrationData,
         ],
-        'data' => $registrationData
+        'data' => $registrationData,
     ], JSON_UNESCAPED_SLASHES);
 } catch (PDOException $error) {
     http_response_code($error->getCode() === '23505' ? 409 : 503);
@@ -178,7 +207,7 @@ try {
         'ErrorCode' => $error->getCode() === '23505' ? 'AlreadyExists' : 'ServiceUnavailable',
         'Value' => [
             'User' => null,
-            'Form' => ['Errors' => []]
-        ]
-    ]);
+            'Form' => ['Errors' => []],
+        ],
+    ], JSON_UNESCAPED_SLASHES);
 }
