@@ -113,7 +113,7 @@ try {
     $database = database();
     $user = null;
 
-    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login LIMIT 1');
+    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
     $query->execute(['login' => $login]);
     $user = $query->fetch();
 
