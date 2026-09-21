@@ -116,6 +116,7 @@ if (!$oneClickRegistration && ($username === null || $username === '' || $email 
 
 try {
     $database = database();
+    error_log('Database connection successful');
 
     if ($oneClickRegistration && ($username === null || $username === '' || $password === null || $password === '')) {
         $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
