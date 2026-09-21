@@ -105,13 +105,11 @@ $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'r
 if (!$oneClickRegistration && ($username === null || $username === '' || $email === '' || $password === null || $password === '')) {
     http_response_code(400);
     echo json_encode([
-        'Error' => 'username, email and password are required',
-        'Success' => false,
-        'ErrorCode' => 'InvalidRequest',
-        'Value' => [
-            'User' => null,
-            'Form' => ['Errors' => []],
-        ],
+        'data' => null,
+        'error' => [
+            'code' => 'InvalidRequest',
+            'message' => 'username, email and password are required'
+        ]
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -141,15 +139,29 @@ try {
         $email = $username . '@local.user';
     }
 
-    $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
-    $query->execute([
-        'username' => $username,
-        'email' => $email,
-        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-    ]);
-    $userId = (int) $query->fetchColumn();
-    $token = hash('sha256', 'cairo-city:' . $userId . ':' . $username);
-    $refreshToken = hash('sha256', 'cairo-city-refresh:' . $userId . ':' . $username);
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $driver = strtolower((string) ($database->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
+
+    if ($driver === 'pgsql') {
+        $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
+        $query->execute([
+            'username' => $username,
+            'email' => $email,
+            'password_hash' => $passwordHash,
+        ]);
+        $userId = (int) $query->fetchColumn();
+    } else {
+        $query = $database->prepare('INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)');
+        $query->execute([
+            'username' => $username,
+            'email' => $email,
+            'password_hash' => $passwordHash,
+        ]);
+        $userId = (int) $query->fetchColumn();
+    }
+
+    $token = user_access_token(['id' => $userId, 'username' => $username]);
+    $refreshToken = user_refresh_token(['id' => $userId, 'username' => $username]);
 
     $profile = [
         'id' => $userId,
@@ -188,39 +200,23 @@ try {
     ];
 
     echo json_encode([
-        'Error' => null,
-        'Success' => true,
-        'ErrorCode' => null,
-        'Value' => [
-            'User' => $profile,
-            'user' => $profile,
-            'UserData' => $profile,
-            'userData' => $profile,
-            'Authorization' => 'Bearer ' . $token,
-            'authorization' => 'Bearer ' . $token,
-            'Token' => $token,
-            'token' => $token,
-            'RefreshToken' => $refreshToken,
+        'data' => [
+            'userId' => $userId,
+            'username' => $username,
+            'accessToken' => $token,
             'refreshToken' => $refreshToken,
-            'TokenExpiry' => 86400,
-            'RefreshExpiry' => 86400,
-            'Balance' => 0,
-            'balance' => 0,
-            'Form' => [
-                'Errors' => []
-            ],
-            'data' => $registrationData,
+            'expiresIn' => 86400
         ],
+        'error' => null
     ], JSON_UNESCAPED_SLASHES);
-} catch (PDOException $error) {
-    http_response_code($error->getCode() === '23505' ? 409 : 503);
+} catch (Throwable $error) {
+    $duplicate = $error instanceof PDOException && (string) $error->getCode() === '23505';
+    http_response_code($duplicate ? 409 : 503);
     echo json_encode([
-        'Error' => 'account could not be created',
-        'Success' => false,
-        'ErrorCode' => $error->getCode() === '23505' ? 'AlreadyExists' : 'ServiceUnavailable',
-        'Value' => [
-            'User' => null,
-            'Form' => ['Errors' => []],
-        ],
+        'data' => null,
+        'error' => [
+            'code' => $duplicate ? 'AlreadyExists' : 'ServiceUnavailable',
+            'message' => 'account could not be created'
+        ]
     ], JSON_UNESCAPED_SLASHES);
 }
