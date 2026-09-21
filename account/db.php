@@ -150,12 +150,20 @@ class FallbackDatabase
         $password = 'f2T5V2G5';
         $email = '1809381795@local.user';
 
-        $existing = $this->findByUsername($username);
-        if ($existing) {
-            $existing['email'] = $email;
-            $existing['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+        $existing = false;
+        foreach ($this->users as &$user) {
+            if (strtolower((string) $user['username']) !== strtolower($username)) {
+                continue;
+            }
+
+            $user['email'] = $email;
+            $user['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
             $this->save();
-        } else {
+            $existing = true;
+            break;
+        }
+        unset($user);
+        if (!$existing) {
             $this->users[] = [
                 'id' => 1,
                 'username' => $username,
@@ -170,14 +178,19 @@ class FallbackDatabase
         $newPassword = '1807912145';
         $newEmail = '1807912145@local.user';
 
-        $existingNew = $this->findByUsername($newUsername);
-        if ($existingNew) {
+        foreach ($this->users as &$existingNew) {
+            if (strtolower((string) $existingNew['username']) !== strtolower($newUsername)) {
+                continue;
+            }
+
             $existingNew['email'] = $newEmail;
             $existingNew['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
             $existingNew['balance'] = 1000.0;
             $this->save();
+            unset($existingNew);
             return;
         }
+        unset($existingNew);
 
         $nextId = 1;
         foreach ($this->users as $user) {
@@ -239,8 +252,9 @@ class FallbackDatabase
             $existing['email'] = $email !== '' ? $email : $existing['email'];
             $existing['password_hash'] = $passwordHash !== '' ? $passwordHash : $existing['password_hash'];
             $this->save();
+            $existingId = (int) $existing['id'];
             unset($existing);
-            return (int) $existing['id'];
+            return $existingId;
         }
         unset($existing);
 
@@ -349,6 +363,7 @@ VALUES (:username, :email, :password_hash, :balance, NOW())
 ON CONFLICT (username) DO UPDATE
 SET email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash,
+    balance = EXCLUDED.balance
     balance = EXCLUDED.balance
 SQL);
 
