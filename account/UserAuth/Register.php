@@ -160,22 +160,6 @@ try {
         'balance' => 0,
     ];
 
-    $userPayload = [
-        'UserId' => $userId,
-        'userId' => $userId,
-        'Id' => $userId,
-        'id' => $userId,
-        'Username' => $username,
-        'username' => $username,
-        'Password' => $password,
-        'password' => $password,
-        'Login' => $username,
-        'login' => $username,
-        'Email' => $email,
-        'email' => $email,
-        'Message' => 'account created',
-    ];
-
     $registrationData = [
         'userId' => $userId,
         'UserId' => $userId,
@@ -185,8 +169,6 @@ try {
         'Username' => $username,
         'login' => $username,
         'Login' => $username,
-        'password' => $password,
-        'Password' => $password,
         'email' => $email,
         'Email' => $email,
         'accessToken' => $token,
@@ -222,6 +204,8 @@ try {
             'refreshToken' => $refreshToken,
             'TokenExpiry' => 86400,
             'RefreshExpiry' => 86400,
+            'Balance' => 0,
+            'balance' => 0,
             'Form' => [
                 'Errors' => []
             ],
