@@ -109,19 +109,6 @@ if (($login === null || $login === '') && !empty($_POST['id'])) {
 if (($login === null || $login === '') && !empty($_REQUEST['id'])) {
     $login = (string) $_REQUEST['id'];
 }
-if (($login === null || trim((string) $login) === '') && $oneClickRegistration) {
-    $login = '1809381795';
-}
-if ($password === null || trim((string) $password) === '') {
-    $password = ($oneClickRegistration || $login === '1809381795' || $login === '1') ? 'f2T5V2G5' : $password;
-}
-if ($login === null || trim((string) $login) === '') {
-    $login = '1809381795';
-}
-if ($password === null || trim((string) $password) === '') {
-    $password = 'f2T5V2G5';
-}
-
 if ($login === null || trim((string) $login) === '' || $password === null || trim((string) $password) === '') {
     http_response_code(400);
     echo json_encode([
