@@ -364,7 +364,6 @@ ON CONFLICT (username) DO UPDATE
 SET email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash,
     balance = EXCLUDED.balance
-    balance = EXCLUDED.balance
 SQL);
 
         $statement->execute([
