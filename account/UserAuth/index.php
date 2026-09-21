@@ -112,10 +112,11 @@ if (($login === null || $login === '') && !empty($_REQUEST['id'])) {
 if ($login === null || trim((string) $login) === '' || $password === null || trim((string) $password) === '') {
     http_response_code(400);
     echo json_encode([
-        'Error' => 'username and password are required',
-        'Success' => false,
-        'ErrorCode' => 'InvalidRequest',
-        'Value' => null
+        'data' => null,
+        'error' => [
+            'code' => 'InvalidRequest',
+            'message' => 'username and password are required'
+        ]
     ]);
     exit;
 }
@@ -130,7 +131,12 @@ try {
 
     if (!$user && $oneClickRegistration) {
         $registrationEmail = ($email !== null && $email !== '') ? $email : $login . '@local.user';
-        $create = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) ON CONFLICT (username) DO NOTHING');
+        $driver = strtolower((string) ($database->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
+        if ($driver === 'pgsql') {
+            $create = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) ON CONFLICT (username) DO NOTHING');
+        } else {
+            $create = $database->prepare('INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)');
+        }
         $create->execute([
             'username' => $login,
             'email' => $registrationEmail,
@@ -143,16 +149,17 @@ try {
     if (!$user || !password_verify($password, (string) $user['password_hash'])) {
         http_response_code(401);
         echo json_encode([
-            'Error' => 'incorrect username or password',
-            'Success' => false,
-            'ErrorCode' => 'InvalidCredentials',
-            'Value' => null
+            'data' => null,
+            'error' => [
+                'code' => 'InvalidCredentials',
+                'message' => 'incorrect username or password'
+            ]
         ]);
         exit;
     }
 
-    $token = hash('sha256', 'cairo-city:' . $user['id'] . ':' . $user['username']);
-    $refreshToken = hash('sha256', 'cairo-city-refresh:' . $user['id'] . ':' . $user['username']);
+    $token = user_access_token($user);
+    $refreshToken = user_refresh_token($user);
     $profile = [
         'id' => (int) $user['id'],
         'Id' => (int) $user['id'],
@@ -193,40 +200,22 @@ try {
     ];
 
     echo json_encode([
-        'Error' => null,
-        'Success' => true,
-        'ErrorCode' => null,
-        'Value' => [
-            'RefreshToken' => $refreshToken,
-            'refreshToken' => $refreshToken,
-            'RefreshExpiry' => 86400,
-            'Token' => $token,
-            'token' => $token,
-            'TokenExpiry' => 86400,
-            'UserData' => $profile,
-            'userData' => $profile,
-            'User' => $profile,
-            'user' => $profile,
-            'Question' => null,
-            'Authorization' => $bearerToken,
-            'authorization' => $bearerToken,
-            'tokenType' => 'Bearer',
-            'token_type' => 'Bearer',
+        'data' => [
+            'userId' => (int) $user['id'],
             'accessToken' => $token,
-            'AccessToken' => $token,
             'refreshToken' => $refreshToken,
-            'expiresIn' => 86400,
-            'ExpiresIn' => 86400,
-            'data' => $loginData,
+            'expiresIn' => 86400
         ],
+        'error' => null
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     error_log($error->getMessage());
     http_response_code(503);
     echo json_encode([
-        'Error' => 'database unavailable',
-        'Success' => false,
-        'ErrorCode' => 'ServiceUnavailable',
-        'Value' => null
+        'data' => null,
+        'error' => [
+            'code' => 'ServiceUnavailable',
+            'message' => 'database unavailable'
+        ]
     ]);
 }
