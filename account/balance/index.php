@@ -90,13 +90,17 @@ $login = extract_first_value($input, ['username', 'user_name', 'userName', 'user
 try {
     $database = database();
     $balance = 0.0;
+    $userId = 0;
 
     if ($login !== null && $login !== '') {
-        $query = $database->prepare('SELECT balance FROM users WHERE username = :login OR email = :login LIMIT 1');
+        $query = $database->prepare('SELECT id, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
         $query->execute(['login' => $login]);
         $row = $query->fetch();
-        if ($row && isset($row['balance'])) {
-            $balance = (float) $row['balance'];
+        if ($row) {
+            $userId = isset($row['id']) ? (int) $row['id'] : 0;
+            if (isset($row['balance'])) {
+                $balance = (float) $row['balance'];
+            }
         }
     }
 
@@ -106,7 +110,7 @@ try {
         'ErrorCode' => null,
         'Value' => [
             [
-                'id' => 0,
+                'id' => $userId,
                 'balance' => $balance,
                 'isActive' => true,
                 'Balance' => $balance,
