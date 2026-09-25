@@ -86,9 +86,78 @@ if (!is_array($input) || count($input) === 0) {
 $input = array_merge($_GET, $_POST, $_REQUEST, $input);
 
 $login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'account', 'user']);
+$amountValue = extract_first_value($input, ['amount', 'value', 'credit', 'deposit', 'bonus']);
+$setBalanceValue = extract_first_value($input, ['balance', 'new_balance', 'newBalance', 'set_balance', 'setBalance']);
 
 try {
     $database = database();
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($amountValue !== null && $amountValue !== '') || ($setBalanceValue !== null && $setBalanceValue !== ''))) {
+        $targetId = null;
+        $targetLogin = $login;
+
+        if ($targetLogin !== null && $targetLogin !== '') {
+            $lookup = $database->prepare('SELECT id, username, email, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
+            $lookup->execute(['login' => $targetLogin]);
+            $user = $lookup->fetch();
+            if ($user) {
+                $targetId = (int) $user['id'];
+            }
+        }
+
+        if ($targetId === null && !empty($input['user_id'])) {
+            $targetId = (int) $input['user_id'];
+        }
+
+        if ($targetId === null && !empty($input['userId'])) {
+            $targetId = (int) $input['userId'];
+        }
+
+        if ($targetId === null && !empty($input['id'])) {
+            $targetId = (int) $input['id'];
+        }
+
+        if ($targetId === null || $targetId <= 0) {
+            http_response_code(400);
+            echo json_encode([
+                'Error' => 'user id is required',
+                'Success' => false,
+                'ErrorCode' => 'InvalidRequest',
+                'Value' => null,
+            ], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
+        $amount = (float) ($amountValue !== null && $amountValue !== '' ? $amountValue : 0.0);
+        $newBalance = isset($setBalanceValue) && $setBalanceValue !== '' ? (float) $setBalanceValue : null;
+
+        if ($newBalance !== null) {
+            $update = $database->prepare('UPDATE users SET balance = :balance WHERE id = :id');
+            $update->execute(['balance' => $newBalance, 'id' => $targetId]);
+        } else {
+            $update = $database->prepare('UPDATE users SET balance = balance + :amount WHERE id = :id');
+            $update->execute(['amount' => $amount, 'id' => $targetId]);
+        }
+
+        $read = $database->prepare('SELECT id, username, email, balance FROM users WHERE id = :id LIMIT 1');
+        $read->execute(['id' => $targetId]);
+        $user = $read->fetch();
+
+        echo json_encode([
+            'Error' => null,
+            'Success' => true,
+            'ErrorCode' => null,
+            'Value' => [
+                'id' => (int) ($user['id'] ?? $targetId),
+                'username' => $user['username'] ?? null,
+                'email' => $user['email'] ?? null,
+                'balance' => (float) ($user['balance'] ?? 0.0),
+                'amount' => $amount,
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     $balance = 0.0;
     $userId = 0;
 
