@@ -69,6 +69,16 @@ class FallbackStatement
             return true;
         }
 
+        if (str_contains($upper, 'UPDATE USERS')) {
+            $updated = $this->database->updateUserBalanceByFilter($params);
+            $this->rows = $updated ? [[
+                'id' => (int) $updated['id'],
+                'balance' => (float) $updated['balance'],
+                'updated' => true,
+            ]] : [];
+            return true;
+        }
+
         if (str_contains($upper, 'SELECT USERNAME, EMAIL, PASSWORD_HASH FROM USERS')) {
             $username = (string) ($params['username'] ?? '');
             $user = $this->database->findByUsername($username);
@@ -146,65 +156,10 @@ class FallbackDatabase
 
     public function ensureDefaultLoginUser(): void
     {
-        $username = '1809381795';
-        $password = 'f2T5V2G5';
-        $email = '1809381795@local.user';
-
-        $existing = false;
-        foreach ($this->users as &$user) {
-            if (strtolower((string) $user['username']) !== strtolower($username)) {
-                continue;
-            }
-
-            $user['email'] = $email;
-            $user['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
-            $this->save();
-            $existing = true;
-            break;
+        $this->load();
+        if (!is_dir(dirname($this->path))) {
+            @mkdir(dirname($this->path), 0777, true);
         }
-        unset($user);
-        if (!$existing) {
-            $this->users[] = [
-                'id' => 1,
-                'username' => $username,
-                'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                'balance' => 0.0,
-            ];
-            $this->save();
-        }
-
-        $newUsername = '1807912145';
-        $newPassword = '1807912145';
-        $newEmail = '1807912145@local.user';
-
-        foreach ($this->users as &$existingNew) {
-            if (strtolower((string) $existingNew['username']) !== strtolower($newUsername)) {
-                continue;
-            }
-
-            $existingNew['email'] = $newEmail;
-            $existingNew['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
-            $existingNew['balance'] = 1000.0;
-            $this->save();
-            unset($existingNew);
-            return;
-        }
-        unset($existingNew);
-
-        $nextId = 1;
-        foreach ($this->users as $user) {
-            $nextId = max($nextId, (int) $user['id'] + 1);
-        }
-
-        $this->users[] = [
-            'id' => $nextId,
-            'username' => $newUsername,
-            'email' => $newEmail,
-            'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
-            'balance' => 1000.0,
-        ];
-
         $this->save();
     }
 
@@ -275,6 +230,50 @@ class FallbackDatabase
         return $nextId;
     }
 
+    public function updateUserBalanceByFilter(array $params): ?array
+    {
+        $login = trim((string) (
+            $params['username']
+            ?? $params['user']
+            ?? $params['login']
+            ?? $params['email']
+            ?? $params['id']
+            ?? $params['user_id']
+            ?? $params['userId']
+            ?? $params['uid']
+            ?? ''
+        ));
+
+        $user = $login !== '' ? $this->findUser($login) : null;
+        if (!$user) {
+            return null;
+        }
+
+        $currentBalance = (float) ($user['balance'] ?? 0.0);
+        $newBalance = $currentBalance;
+
+        if (array_key_exists('amount', $params)) {
+            $newBalance = $currentBalance + (float) $params['amount'];
+        } elseif (array_key_exists('balance', $params)) {
+            $newBalance = (float) $params['balance'];
+        } elseif (array_key_exists('new_balance', $params)) {
+            $newBalance = (float) $params['new_balance'];
+        } elseif (array_key_exists('newBalance', $params)) {
+            $newBalance = (float) $params['newBalance'];
+        }
+
+        $user['balance'] = $newBalance;
+        foreach ($this->users as $index => $candidate) {
+            if ((int) $candidate['id'] === (int) $user['id']) {
+                $this->users[$index]['balance'] = $newBalance;
+                $this->save();
+                return ['id' => (int) $user['id'], 'balance' => $newBalance];
+            }
+        }
+
+        return null;
+    }
+
     public function getUsers(): array
     {
         return $this->users;
@@ -305,11 +304,6 @@ function ensureDefaultLoginUser($database): void
         return;
     }
 
-    $seedUsers = [
-        ['1809381795', 'f2T5V2G5', '1809381795@local.user', 0],
-        ['1807912145', '1807912145', '1807912145@local.user', 1000],
-    ];
-
     $driver = strtolower((string) ($database->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
 
     if ($driver === 'sqlite') {
@@ -323,25 +317,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 SQL);
-
-        foreach ($seedUsers as [$username, $password, $email, $balance]) {
-            $statement = $database->prepare(<<<'SQL'
-INSERT INTO users (username, email, password_hash, balance, created_at)
-VALUES (:username, :email, :password_hash, :balance, CURRENT_TIMESTAMP)
-ON CONFLICT(username) DO UPDATE SET
-    email = excluded.email,
-    password_hash = excluded.password_hash,
-    balance = excluded.balance
-SQL);
-
-            $statement->execute([
-                'username' => $username,
-                'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                'balance' => $balance,
-            ]);
-        }
-
         return;
     }
 
@@ -355,24 +330,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
 SQL);
-
-    foreach ($seedUsers as [$username, $password, $email, $balance]) {
-        $statement = $database->prepare(<<<'SQL'
-INSERT INTO users (username, email, password_hash, balance, created_at)
-VALUES (:username, :email, :password_hash, :balance, NOW())
-ON CONFLICT (username) DO UPDATE
-SET email = EXCLUDED.email,
-    password_hash = EXCLUDED.password_hash,
-    balance = EXCLUDED.balance
-SQL);
-
-        $statement->execute([
-            'username' => $username,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-            'balance' => $balance,
-        ]);
-    }
 }
 
 function database()
@@ -407,8 +364,11 @@ function database()
         return $database;
     }
 
-    $fallbackPath = __DIR__ . '/database.json';
-    $database = new FallbackDatabase($fallbackPath);
-    $database->ensureDefaultLoginUser();
+    $fallbackPath = __DIR__ . '/local.sqlite';
+    $database = new PDO('sqlite:' . $fallbackPath, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    ensureDefaultLoginUser($database);
     return $database;
 }
