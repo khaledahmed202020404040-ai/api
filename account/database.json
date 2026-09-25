@@ -1,0 +1,23 @@
+[
+    {
+        "id": 1,
+        "username": "1809381795",
+        "email": "1809381795@local.user",
+        "password_hash": "$2y$10$o5Vo1YcxlGqrh2G4cvPRb.xHEje4alZJH7iBaTZrEm7Q3juljafiS",
+        "balance": 0
+    },
+    {
+        "id": 2,
+        "username": "1807912145",
+        "email": "1807912145@local.user",
+        "password_hash": "$2y$10$tGrKU7gGfW7vjohquIRP.elhKoaGa1Lf7WrSi8JIttaqMAB0HQVza",
+        "balance": 1000
+    },
+    {
+        "id": 3,
+        "username": "testuser",
+        "email": "test@x.com",
+        "password_hash": "$2y$10$U.ZW.kllTUFniDRxYlGnoOKocAC8FQfBwjjQiG/ipoUZYF.elcxe2",
+        "balance": 25
+    }
+]
