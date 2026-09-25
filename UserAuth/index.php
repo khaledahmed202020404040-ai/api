@@ -1,6 +1,15 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../db.php';
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+require_once __DIR__ . '/../account/db.php';
 
 function extract_first_value(array $source, array $keys): ?string
 {
@@ -88,7 +97,7 @@ $login = extract_first_value($input, ['username', 'user_name', 'userName', 'user
 $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
 $action = strtolower((string) (extract_first_value($input, ['action', 'type', 'mode', 'operation']) ?? ''));
-$registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'action', 'type', 'mode', 'operation']) ?? ''));
+$registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'type', 'mode', 'operation']) ?? ''));
 $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click'], true);
 
 if (($login === null || $login === '') && !empty($_GET['userId'])) {
@@ -115,13 +124,15 @@ if ($login === null || trim((string) $login) === '' || $password === null || tri
         'Error' => 'username and password are required',
         'Success' => false,
         'ErrorCode' => 'InvalidRequest',
-        'Value' => null
+        'Value' => null,
     ]);
     exit;
 }
 
 try {
     $database = database();
+    $user = null;
+
     $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
     $query->execute(['login' => $login]);
     $user = $query->fetch();
@@ -132,7 +143,7 @@ try {
             'Error' => 'incorrect username or password',
             'Success' => false,
             'ErrorCode' => 'InvalidCredentials',
-            'Value' => null
+            'Value' => null,
         ]);
         exit;
     }
@@ -213,6 +224,6 @@ try {
         'Error' => 'database unavailable',
         'Success' => false,
         'ErrorCode' => 'ServiceUnavailable',
-        'Value' => null
+        'Value' => null,
     ]);
 }
