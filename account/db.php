@@ -64,25 +64,6 @@ function database(): PDO
         return $pdo;
     }
 
-    if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
-        $sqlitePath = __DIR__ . '/database.sqlite';
-        $pdo = new PDO('sqlite:' . $sqlitePath, null, null, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-
-        $pdo->exec('CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            balance NUMERIC DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )');
-
-        return $pdo;
-    }
-
     throw new RuntimeException('No database configuration found. Set DATABASE_URL or PostgreSQL env vars.');
 }
 
