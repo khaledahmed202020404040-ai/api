@@ -101,6 +101,7 @@ if ($email === null || $email === '') {
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
 $registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'type', 'mode']) ?? ''));
 $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click'], true);
+$generatedPassword = null;
 
 if (!$oneClickRegistration && ($username === null || $username === '' || $email === '' || $password === null || $password === '')) {
     http_response_code(400);
@@ -126,6 +127,7 @@ try {
             for ($index = 0; $index < 8; $index++) {
                 $password .= $characters[random_int(0, strlen($characters) - 1)];
             }
+            $generatedPassword = $password;
         }
 
         if ($username === null || $username === '') {
@@ -205,6 +207,10 @@ try {
         'Login' => $username,
         'email' => $email,
         'Email' => $email,
+        'password' => $password,
+        'Password' => $password,
+        'generatedPassword' => $generatedPassword ?? $password,
+        'GeneratedPassword' => $generatedPassword ?? $password,
         'accessToken' => $token,
         'AccessToken' => $token,
         'refreshToken' => $refreshToken,
@@ -240,6 +246,10 @@ try {
             'RefreshExpiry' => 86400,
             'Balance' => 0,
             'balance' => 0,
+            'password' => $password,
+            'Password' => $password,
+            'generatedPassword' => $generatedPassword ?? $password,
+            'GeneratedPassword' => $generatedPassword ?? $password,
             'Form' => [
                 'Errors' => []
             ],
