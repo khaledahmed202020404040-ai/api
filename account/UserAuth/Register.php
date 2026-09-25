@@ -105,18 +105,19 @@ $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'r
 if (!$oneClickRegistration && ($username === null || $username === '' || $email === '' || $password === null || $password === '')) {
     http_response_code(400);
     echo json_encode([
-        'data' => null,
-        'error' => [
-            'code' => 'InvalidRequest',
-            'message' => 'username, email and password are required'
-        ]
+        'Error' => 'username, email and password are required',
+        'Success' => false,
+        'ErrorCode' => 'InvalidRequest',
+        'Value' => [
+            'User' => null,
+            'Form' => ['Errors' => []],
+        ],
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 try {
     $database = database();
-    error_log('Database connection successful');
 
     if ($oneClickRegistration && ($username === null || $username === '' || $password === null || $password === '')) {
         $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -140,29 +141,49 @@ try {
         $email = $username . '@local.user';
     }
 
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    $driver = strtolower((string) ($database->getAttribute(PDO::ATTR_DRIVER_NAME) ?? ''));
+    $existingUser = $database->prepare('SELECT id FROM users WHERE username = :username OR email = :email LIMIT 1');
+    $existingUser->execute([
+        'username' => $username,
+        'email' => $email,
+    ]);
+    $existingRow = $existingUser->fetch();
 
-    if ($driver === 'pgsql') {
-        $query = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW()) RETURNING id');
-        $query->execute([
-            'username' => $username,
-            'email' => $email,
-            'password_hash' => $passwordHash,
-        ]);
-        $userId = (int) $query->fetchColumn();
-    } else {
-        $query = $database->prepare('INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)');
-        $query->execute([
-            'username' => $username,
-            'email' => $email,
-            'password_hash' => $passwordHash,
-        ]);
-        $userId = (int) $query->fetchColumn();
+    if ($existingRow) {
+        http_response_code(409);
+        echo json_encode([
+            'Error' => 'account already exists',
+            'Success' => false,
+            'ErrorCode' => 'AlreadyExists',
+            'Value' => [
+                'User' => null,
+                'Form' => ['Errors' => []],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+        exit;
     }
 
-    $token = user_access_token(['id' => $userId, 'username' => $username]);
-    $refreshToken = user_refresh_token(['id' => $userId, 'username' => $username]);
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $insertQuery = $database->prepare('INSERT INTO users (username, email, password_hash, balance, created_at) VALUES (:username, :email, :password_hash, 0, NOW())');
+    $insertQuery->execute([
+        'username' => $username,
+        'email' => $email,
+        'password_hash' => $passwordHash,
+    ]);
+
+    $fetchIdQuery = $database->prepare('SELECT id FROM users WHERE username = :username AND email = :email LIMIT 1');
+    $fetchIdQuery->execute([
+        'username' => $username,
+        'email' => $email,
+    ]);
+    $idRow = $fetchIdQuery->fetch();
+
+    if (!$idRow) {
+        throw new RuntimeException('user was not created after insert');
+    }
+
+    $userId = (int) $idRow['id'];
+    $token = hash('sha256', 'cairo-city:' . $userId . ':' . $username);
+    $refreshToken = hash('sha256', 'cairo-city-refresh:' . $userId . ':' . $username);
 
     $profile = [
         'id' => $userId,
@@ -201,23 +222,41 @@ try {
     ];
 
     echo json_encode([
-        'data' => [
-            'userId' => $userId,
-            'username' => $username,
-            'accessToken' => $token,
+        'Error' => null,
+        'Success' => true,
+        'ErrorCode' => null,
+        'Value' => [
+            'User' => $profile,
+            'user' => $profile,
+            'UserData' => $profile,
+            'userData' => $profile,
+            'Authorization' => 'Bearer ' . $token,
+            'authorization' => 'Bearer ' . $token,
+            'Token' => $token,
+            'token' => $token,
+            'RefreshToken' => $refreshToken,
             'refreshToken' => $refreshToken,
-            'expiresIn' => 86400
+            'TokenExpiry' => 86400,
+            'RefreshExpiry' => 86400,
+            'Balance' => 0,
+            'balance' => 0,
+            'Form' => [
+                'Errors' => []
+            ],
+            'data' => $registrationData,
         ],
-        'error' => null
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
-    $duplicate = $error instanceof PDOException && (string) $error->getCode() === '23505';
-    http_response_code($duplicate ? 409 : 503);
+    $code = $error instanceof PDOException ? $error->getCode() : 0;
+    $statusCode = ($code === '23505' || str_contains((string) $error->getMessage(), 'already exists')) ? 409 : 503;
+    http_response_code($statusCode);
     echo json_encode([
-        'data' => null,
-        'error' => [
-            'code' => $duplicate ? 'AlreadyExists' : 'ServiceUnavailable',
-            'message' => 'account could not be created'
-        ]
+        'Error' => 'account could not be created',
+        'Success' => false,
+        'ErrorCode' => ($code === '23505' || str_contains((string) $error->getMessage(), 'already exists')) ? 'AlreadyExists' : 'ServiceUnavailable',
+        'Value' => [
+            'User' => null,
+            'Form' => ['Errors' => []],
+        ],
     ], JSON_UNESCAPED_SLASHES);
 }
