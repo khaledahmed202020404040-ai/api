@@ -56,15 +56,17 @@ function extract_first_value(array $source, array $keys): ?string
 function read_request_input(): array
 {
     $rawBody = trim((string) file_get_contents('php://input'));
+    $sources = [];
+
     if ($rawBody !== '') {
         $decoded = json_decode($rawBody, true);
         if (is_array($decoded) && count($decoded) > 0) {
-            return $decoded;
+            $sources[] = $decoded;
         }
 
         parse_str($rawBody, $parsed);
         if (is_array($parsed) && count($parsed) > 0) {
-            return $parsed;
+            $sources[] = $parsed;
         }
 
         $pairs = [];
@@ -79,26 +81,33 @@ function read_request_input(): array
         }
 
         if (count($pairs) > 0) {
-            return $pairs;
+            $sources[] = $pairs;
         }
     }
 
     foreach ([$_POST, $_GET, $_REQUEST] as $source) {
         if (is_array($source) && count($source) > 0) {
-            return $source;
+            $sources[] = $source;
         }
     }
 
-    return [];
+    $merged = [];
+    foreach ($sources as $source) {
+        if (is_array($source)) {
+            $merged = array_replace_recursive($merged, $source);
+        }
+    }
+
+    return $merged;
 }
 
 $input = read_request_input();
 if (!is_array($input)) {
     $input = [];
 }
-$input = array_merge($_GET, $_POST, $_REQUEST, $input);
+$input = array_replace_recursive($_GET, $_POST, $_REQUEST, $input);
 
-$login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user']);
+$login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user', 'phoneNumber', 'phone_number']);
 $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
 $action = strtolower((string) (extract_first_value($input, ['action', 'type', 'mode', 'operation']) ?? ''));
