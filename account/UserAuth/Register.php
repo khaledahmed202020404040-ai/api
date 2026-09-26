@@ -24,6 +24,21 @@ function read_request_input(): array
         if (is_array($parsed) && count($parsed) > 0) {
             return $parsed;
         }
+
+        $pairs = [];
+        if (preg_match_all('/(?:"|\')?([A-Za-z0-9_\-]+)(?:"|\')?\s*[:=]\s*(?:"|\')?([^"\'&,}\s]+)(?:"|\')?(?:\s*(?:,|}|$))/i', $rawBody, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $key = trim((string) ($match[1] ?? ''));
+                $value = trim((string) ($match[2] ?? ''));
+                if ($key !== '' && $value !== '') {
+                    $pairs[$key] = $value;
+                }
+            }
+        }
+
+        if (count($pairs) > 0) {
+            return $pairs;
+        }
     }
 
     foreach ([$_POST, $_GET, $_REQUEST] as $source) {
@@ -75,6 +90,7 @@ try {
     if (!is_array($input)) {
         $input = [];
     }
+    $input = array_merge($_GET, $_POST, $_REQUEST, $input);
 
     $username = first_value($input, ['username', 'user_name', 'userName', 'login', 'user', 'account']);
     $email = first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
