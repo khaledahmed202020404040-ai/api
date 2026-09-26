@@ -28,10 +28,16 @@ function read_request_input(): array
         }
 
         $pairs = [];
-        if (preg_match_all('/(?:"|\')?([A-Za-z0-9_\-]+)(?:"|\')?\s*[:=]\s*(?:"|\')?([^"\'&,}\s]+)(?:"|\')?(?:\s*(?:,|}|$))/i', $rawBody, $matches, PREG_SET_ORDER)) {
+        $bodyCandidate = $rawBody;
+        if (preg_match('/^\s*\{.*\}\s*$/s', $bodyCandidate)) {
+            $bodyCandidate = trim($bodyCandidate, "{} ");
+        }
+
+        if (preg_match_all('/([A-Za-z0-9_\-]+)\s*[:=]\s*([^,}\s]+(?:\s*[^,}\s]+)*)/i', $bodyCandidate, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $key = trim((string) ($match[1] ?? ''));
                 $value = trim((string) ($match[2] ?? ''));
+                $value = rtrim($value, "}\]'");
                 if ($key !== '' && $value !== '') {
                     $pairs[$key] = $value;
                 }
@@ -178,4 +184,3 @@ try {
         'Value' => null,
     ], JSON_UNESCAPED_SLASHES);
 }
-
