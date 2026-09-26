@@ -14,15 +14,17 @@ require_once __DIR__ . '/../db.php';
 function read_request_input(): array
 {
     $rawBody = trim((string) file_get_contents('php://input'));
+    $sources = [];
+
     if ($rawBody !== '') {
         $decoded = json_decode($rawBody, true);
         if (is_array($decoded) && count($decoded) > 0) {
-            return $decoded;
+            $sources[] = $decoded;
         }
 
         parse_str($rawBody, $parsed);
         if (is_array($parsed) && count($parsed) > 0) {
-            return $parsed;
+            $sources[] = $parsed;
         }
 
         $pairs = [];
@@ -37,17 +39,24 @@ function read_request_input(): array
         }
 
         if (count($pairs) > 0) {
-            return $pairs;
+            $sources[] = $pairs;
         }
     }
 
     foreach ([$_POST, $_GET, $_REQUEST] as $source) {
         if (is_array($source) && count($source) > 0) {
-            return $source;
+            $sources[] = $source;
         }
     }
 
-    return [];
+    $merged = [];
+    foreach ($sources as $source) {
+        if (is_array($source)) {
+            $merged = array_replace_recursive($merged, $source);
+        }
+    }
+
+    return $merged;
 }
 
 function first_value(array $source, array $keys): ?string
@@ -63,12 +72,17 @@ function first_value(array $source, array $keys): ?string
         foreach ($current as $key => $value) {
             $normalized = strtolower((string) $key);
             foreach ($keys as $candidate) {
-                if ($normalized === strtolower((string) $candidate)) {
+                $candidateKey = strtolower((string) $candidate);
+                if ($normalized === $candidateKey || str_contains($normalized, $candidateKey) || str_contains($candidateKey, $normalized)) {
                     if (is_array($value)) {
                         $nested = first_value($value, $keys);
                         if ($nested !== null) {
                             return trim((string) $nested);
                         }
+                        continue 2;
+                    }
+
+                    if ($value === null) {
                         continue 2;
                     }
 
@@ -90,9 +104,9 @@ try {
     if (!is_array($input)) {
         $input = [];
     }
-    $input = array_merge($_GET, $_POST, $_REQUEST, $input);
+    $input = array_replace_recursive($_GET, $_POST, $_REQUEST, $input);
 
-    $username = first_value($input, ['username', 'user_name', 'userName', 'login', 'user', 'account']);
+    $username = first_value($input, ['username', 'user_name', 'userName', 'login', 'user', 'account', 'phone', 'mobile', 'name']);
     $email = first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
     $password = first_value($input, ['password', 'pass', 'passwd', 'pwd', 'secret']);
 
