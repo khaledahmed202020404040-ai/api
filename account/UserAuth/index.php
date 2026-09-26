@@ -1,5 +1,14 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 require_once __DIR__ . '/../db.php';
 
 function extract_first_value(array $source, array $keys): ?string
@@ -47,38 +56,43 @@ function extract_first_value(array $source, array $keys): ?string
 function read_request_input(): array
 {
     $rawBody = trim((string) file_get_contents('php://input'));
-    if ($rawBody === '') {
-        return [];
-    }
+    if ($rawBody !== '') {
+        $decoded = json_decode($rawBody, true);
+        if (is_array($decoded) && count($decoded) > 0) {
+            return $decoded;
+        }
 
-    $decoded = json_decode($rawBody, true);
-    if (is_array($decoded) && count($decoded) > 0) {
-        return $decoded;
-    }
+        parse_str($rawBody, $parsed);
+        if (is_array($parsed) && count($parsed) > 0) {
+            return $parsed;
+        }
 
-    parse_str($rawBody, $parsed);
-    if (is_array($parsed) && count($parsed) > 0) {
-        return $parsed;
-    }
-
-    $pairs = [];
-    if (preg_match_all('/(?:"|\')?([A-Za-z0-9_\-]+)(?:"|\')?\s*[:=]\s*(?:"|\')?([^"\'&,}\s]+)(?:"|\')?(?:\s*(?:,|}|$))/i', $rawBody, $matches, PREG_SET_ORDER)) {
-        foreach ($matches as $match) {
-            $key = trim((string) ($match[1] ?? ''));
-            $value = trim((string) ($match[2] ?? ''));
-            if ($key !== '' && $value !== '') {
-                $pairs[$key] = $value;
+        $pairs = [];
+        if (preg_match_all('/(?:"|\')?([A-Za-z0-9_\-]+)(?:"|\')?\s*[:=]\s*(?:"|\')?([^"\'&,}\s]+)(?:"|\')?(?:\s*(?:,|}|$))/i', $rawBody, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $key = trim((string) ($match[1] ?? ''));
+                $value = trim((string) ($match[2] ?? ''));
+                if ($key !== '' && $value !== '') {
+                    $pairs[$key] = $value;
+                }
             }
+        }
+
+        if (count($pairs) > 0) {
+            return $pairs;
         }
     }
 
-    return $pairs;
+    foreach ([$_POST, $_GET, $_REQUEST] as $source) {
+        if (is_array($source) && count($source) > 0) {
+            return $source;
+        }
+    }
+
+    return [];
 }
 
 $input = read_request_input();
-if (!is_array($input) || count($input) === 0) {
-    $input = $_POST;
-}
 if (!is_array($input)) {
     $input = [];
 }
