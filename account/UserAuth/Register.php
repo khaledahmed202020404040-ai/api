@@ -115,10 +115,22 @@ try {
     $username = first_value($input, ['username', 'user_name', 'userName', 'login', 'user', 'account', 'phone', 'mobile', 'name']);
     $email = first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
     $password = first_value($input, ['password', 'pass', 'passwd', 'pwd', 'secret']);
+    $registrationType = strtolower((string) (first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'action', 'type', 'mode', 'operation']) ?? ''));
+    $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click', 'register', 'signup', 'registration'], true);
 
     $username = $username !== null ? trim($username) : '';
     $email = $email !== null ? trim($email) : '';
     $password = $password !== null ? (string) $password : '';
+
+    if ($username === '' && $oneClickRegistration) {
+        $username = 'user' . random_int(100000, 999999);
+    }
+    if ($email === '' && $username !== '') {
+        $email = str_contains($username, '@') ? $username : ($username . '@cairo.local');
+    }
+    if ($password === '' && $oneClickRegistration) {
+        $password = bin2hex(random_bytes(4));
+    }
 
     if ($username === '' || $email === '' || $password === '') {
         http_response_code(400);
@@ -160,18 +172,74 @@ try {
     ]);
 
     $userId = (int) $database->lastInsertId();
+    $profile = [
+        'id' => $userId,
+        'Id' => $userId,
+        'user_id' => $userId,
+        'userId' => $userId,
+        'UserId' => $userId,
+        'username' => $username,
+        'Username' => $username,
+        'email' => $email,
+        'Email' => $email,
+        'balance' => 0.0,
+        'Balance' => 0.0,
+    ];
+
+    $token = hash('sha256', 'cairo-city:' . $userId . ':' . $username);
+    $refreshToken = hash('sha256', 'cairo-city-refresh:' . $userId . ':' . $username);
+    $bearerToken = 'Bearer ' . $token;
+
+    $loginData = [
+        'userId' => $userId,
+        'UserId' => $userId,
+        'Id' => $userId,
+        'id' => $userId,
+        'accessToken' => $token,
+        'AccessToken' => $token,
+        'refreshToken' => $refreshToken,
+        'RefreshToken' => $refreshToken,
+        'expiresIn' => 86400,
+        'ExpiresIn' => 86400,
+        'token' => $token,
+        'Token' => $token,
+        'tokenType' => 'Bearer',
+        'TokenType' => 'Bearer',
+        'Authorization' => $bearerToken,
+        'authorization' => $bearerToken,
+        'user' => $profile,
+        'User' => $profile,
+        'userData' => $profile,
+        'UserData' => $profile,
+        'user_id' => $userId,
+    ];
 
     echo json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
-            'userId' => $userId,
-            'id' => $userId,
-            'username' => $username,
-            'email' => $email,
-            'password' => $password,
-            'balance' => 0,
+            'RefreshToken' => $refreshToken,
+            'refreshToken' => $refreshToken,
+            'RefreshExpiry' => 86400,
+            'Token' => $token,
+            'token' => $token,
+            'TokenExpiry' => 86400,
+            'UserData' => $profile,
+            'userData' => $profile,
+            'User' => $profile,
+            'user' => $profile,
+            'Question' => null,
+            'Authorization' => $bearerToken,
+            'authorization' => $bearerToken,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
+            'accessToken' => $token,
+            'AccessToken' => $token,
+            'refreshToken' => $refreshToken,
+            'expiresIn' => 86400,
+            'ExpiresIn' => 86400,
+            'data' => $loginData,
         ],
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
@@ -184,3 +252,4 @@ try {
         'Value' => null,
     ], JSON_UNESCAPED_SLASHES);
 }
+
