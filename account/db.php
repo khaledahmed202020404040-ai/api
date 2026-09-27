@@ -22,6 +22,34 @@ function _database_parse_postgres_url(string $url): array
     ];
 }
 
+function _ensure_users_table(PDO $pdo): void
+{
+    $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+    if ($driver === 'sqlite') {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            balance NUMERIC DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )');
+        return;
+    }
+
+    if ($driver === 'pgsql') {
+        $pdo->exec('CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            balance NUMERIC DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )');
+    }
+}
+
 function database(): PDO
 {
     static $pdo = null;
@@ -42,6 +70,7 @@ function database(): PDO
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]
         );
+        _ensure_users_table($pdo);
         return $pdo;
     }
 
@@ -61,6 +90,7 @@ function database(): PDO
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]
         );
+        _ensure_users_table($pdo);
         return $pdo;
     }
 
@@ -70,16 +100,7 @@ function database(): PDO
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
-
-        $pdo->exec('CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            balance NUMERIC DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )');
-
+        _ensure_users_table($pdo);
         return $pdo;
     }
 
