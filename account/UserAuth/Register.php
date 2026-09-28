@@ -115,21 +115,11 @@ try {
     $username = first_value($input, ['username', 'user_name', 'userName', 'login', 'user', 'account', 'phone', 'mobile', 'name']);
     $email = first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
     $password = first_value($input, ['password', 'pass', 'passwd', 'pwd', 'secret']);
-    $registrationType = strtolower((string) (first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'action', 'type', 'mode', 'operation']) ?? ''));
-    $oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click', 'register', 'signup', 'registration'], true);
-
     $username = $username !== null ? trim($username) : '';
     $email = $email !== null ? trim($email) : '';
     $password = $password !== null ? (string) $password : '';
-
-    if ($username === '' && $oneClickRegistration) {
-        $username = 'user' . random_int(100000, 999999);
-    }
     if ($email === '' && $username !== '') {
         $email = str_contains($username, '@') ? $username : ($username . '@cairo.local');
-    }
-    if ($password === '' && $oneClickRegistration) {
-        $password = bin2hex(random_bytes(4));
     }
 
     if ($username === '' || $email === '' || $password === '') {
