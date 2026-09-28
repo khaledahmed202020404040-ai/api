@@ -94,6 +94,11 @@ function database(): PDO
         return $pdo;
     }
 
+    $runningOnRailway = getenv('RAILWAY_ENVIRONMENT') !== false || getenv('RAILWAY_PROJECT_ID') !== false;
+    if ($runningOnRailway) {
+        throw new RuntimeException('PostgreSQL is required on Railway. Set DATABASE_URL or PostgreSQL environment variables.');
+    }
+
     if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         $sqlitePath = __DIR__ . '/database.sqlite';
         $pdo = new PDO('sqlite:' . $sqlitePath, null, null, [
