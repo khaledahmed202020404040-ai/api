@@ -11,6 +11,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../db.php';
 
+// AES Encryption Configuration
+$AES_KEY = "XJEL+fp/vXz/uHWiZZwrDA=="; // المفتاح الجديد - نفس الموجود في d.smali
+$AES_KEY_DECODED = base64_decode($AES_KEY);
+
+function encrypt_aes($data, $key) {
+    $iv = str_repeat("\0", 16); // ECB mode doesn't use IV
+    $encrypted = openssl_encrypt($data, 'AES-192-ECB', $key, OPENSSL_RAW_DATA);
+    return base64_encode($encrypted);
+}
 
 function extract_first_value(array $source, array $keys): ?string
 {
@@ -119,12 +128,13 @@ try {
 
         if ($targetId === null || $targetId <= 0) {
             http_response_code(400);
-            echo json_encode([
+            $response = json_encode([
                 'Error' => 'user id is required',
                 'Success' => false,
                 'ErrorCode' => 'InvalidRequest',
                 'Value' => null,
             ], JSON_UNESCAPED_SLASHES);
+            echo encrypt_aes($response, $AES_KEY_DECODED);
             exit;
         }
 
@@ -143,7 +153,7 @@ try {
         $read->execute(['id' => $targetId]);
         $user = $read->fetch();
 
-        echo json_encode([
+        $response = json_encode([
             'Error' => null,
             'Success' => true,
             'ErrorCode' => null,
@@ -155,6 +165,7 @@ try {
                 'amount' => $amount,
             ],
         ], JSON_UNESCAPED_SLASHES);
+        echo encrypt_aes($response, $AES_KEY_DECODED);
         exit;
     }
 
@@ -173,7 +184,7 @@ try {
         }
     }
 
-    echo json_encode([
+    $response = json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
@@ -186,13 +197,15 @@ try {
             ],
         ],
     ], JSON_UNESCAPED_SLASHES);
+    echo encrypt_aes($response, $AES_KEY_DECODED);
 } catch (Throwable $error) {
     http_response_code(503);
-    echo json_encode([
+    $response = json_encode([
         'Error' => 'balance unavailable',
         'Success' => false,
         'ErrorCode' => 'ServiceUnavailable',
         'Value' => []
     ], JSON_UNESCAPED_SLASHES);
+    echo encrypt_aes($response, $AES_KEY_DECODED);
 }
 exit;
