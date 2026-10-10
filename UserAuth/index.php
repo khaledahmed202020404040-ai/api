@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../account/db.php';
 
 // AES Encryption Configuration
-$AES_KEY = "XJEL+fp/vXz/uHWiZZwrDA=="; // المفتاح الجديد - نفس الموجود في d.smali
+$AES_KEY = "rsSeRIGfYsedC5YopKeIoA=="; // المفتاح الجديد الصحيح
 $AES_KEY_DECODED = base64_decode($AES_KEY);
 
 function encrypt_aes($data, $key) {
@@ -101,7 +101,7 @@ if (!is_array($input) || count($input) === 0) {
 if (!is_array($input)) {
     $input = [];
 }
-$input = array_merge($_GET, $_POST, $REQUEST, $input);
+$input = array_merge($_GET, $_POST, $_REQUEST, $input);
 
 $login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user']);
 $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
