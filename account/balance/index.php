@@ -1,7 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -9,10 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../account/db.php';
 
 // AES Encryption Configuration
-$AES_KEY = "XJEL+fp/vXz/uHWiZZwrDA=="; // المفتاح الجديد - نفس الموجود في d.smali
+$AES_KEY = "rsSeRIGfYsedC5YopKeIoA=="; // المفتاح الجديد - نفس الموجود في d.smali
 $AES_KEY_DECODED = base64_decode($AES_KEY);
 
 function encrypt_aes($data, $key) {
@@ -33,17 +33,25 @@ function extract_first_value(array $source, array $keys): ?string
 
         foreach ($current as $key => $value) {
             $normalizedKey = strtolower((string) $key);
+            $matchedKey = null;
+
             foreach ($keys as $candidate) {
                 if ($normalizedKey === strtolower((string) $candidate)) {
-                    if (is_array($value)) {
-                        $nested = extract_first_value($value, $keys);
-                        if ($nested !== null) {
-                            return trim((string) $nested);
-                        }
-                        continue 2;
-                    }
-                    return trim((string) $value);
+                    $matchedKey = $candidate;
+                    break;
                 }
+            }
+
+            if ($matchedKey !== null) {
+                if (is_array($value)) {
+                    $nested = extract_first_value($value, $keys);
+                    if ($nested !== null) {
+                        return trim((string) $nested);
+                    }
+                    continue;
+                }
+
+                return trim((string) $value);
             }
 
             if (is_array($value)) {
@@ -87,125 +95,150 @@ function read_request_input(): array
 }
 
 $input = read_request_input();
-
 if (!is_array($input) || count($input) === 0) {
     $input = $_POST;
 }
+if (!is_array($input)) {
+    $input = [];
+}
+$input = array_merge($_GET, $_POST, $REQUEST, $input);
 
-$input = array_merge($_GET, $_POST, $_REQUEST, $input);
+$login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user']);
+$email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
+$password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
+$action = strtolower((string) (extract_first_value($input, ['action', 'type', 'mode', 'operation']) ?? ''));
+$registrationType = strtolower((string) (extract_first_value($input, ['registrationType', 'registration_type', 'regType', 'reg_type', 'af_registration_method', 'type', 'mode', 'operation']) ?? ''));
+$oneClickRegistration = in_array($registrationType, ['one_click', 'oneclick', 'registration_one_click'], true);
 
-$login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'account', 'user']);
-$amountValue = extract_first_value($input, ['amount', 'value', 'credit', 'deposit', 'bonus']);
-$setBalanceValue = extract_first_value($input, ['balance', 'new_balance', 'newBalance', 'set_balance', 'setBalance']);
+if (($login === null || $login === '') && !empty($_GET['userId'])) {
+    $login = (string) $_GET['userId'];
+}
+if (($login === null || $login === '') && !empty($_POST['userId'])) {
+    $login = (string) $_POST['userId'];
+}
+if (($login === null || $login === '') && !empty($_REQUEST['userId'])) {
+    $login = (string) $_REQUEST['userId'];
+}
+if (($login === null || $login === '') && !empty($_GET['id'])) {
+    $login = (string) $_GET['id'];
+}
+if (($login === null || $login === '') && !empty($_POST['id'])) {
+    $login = (string) $_POST['id'];
+}
+if (($login === null || $login === '') && !empty($_REQUEST['id'])) {
+    $login = (string) $_REQUEST['id'];
+}
+if ($login === null || trim((string) $login) === '' || $password === null || trim((string) $password) === '') {
+    http_response_code(400);
+    $response = json_encode([
+        'Error' => 'username and password are required',
+        'Success' => false,
+        'ErrorCode' => 'InvalidRequest',
+        'Value' => null,
+    ]);
+    echo encrypt_aes($response, $AES_KEY_DECODED);
+    exit;
+}
 
 try {
     $database = database();
+    $user = null;
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($amountValue !== null && $amountValue !== '') || ($setBalanceValue !== null && $setBalanceValue !== ''))) {
-        $targetId = null;
-        $targetLogin = $login;
+    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
+    $query->execute(['login' => $login]);
+    $user = $query->fetch();
 
-        if ($targetLogin !== null && $targetLogin !== '') {
-            $lookup = $database->prepare('SELECT id, username, email, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
-            $lookup->execute(['login' => $targetLogin]);
-            $user = $lookup->fetch();
-            if ($user) {
-                $targetId = (int) $user['id'];
-            }
-        }
-
-        if ($targetId === null && !empty($input['user_id'])) {
-            $targetId = (int) $input['user_id'];
-        }
-
-        if ($targetId === null && !empty($input['userId'])) {
-            $targetId = (int) $input['userId'];
-        }
-
-        if ($targetId === null && !empty($input['id'])) {
-            $targetId = (int) $input['id'];
-        }
-
-        if ($targetId === null || $targetId <= 0) {
-            http_response_code(400);
-            $response = json_encode([
-                'Error' => 'user id is required',
-                'Success' => false,
-                'ErrorCode' => 'InvalidRequest',
-                'Value' => null,
-            ], JSON_UNESCAPED_SLASHES);
-            echo encrypt_aes($response, $AES_KEY_DECODED);
-            exit;
-        }
-
-        $amount = (float) ($amountValue !== null && $amountValue !== '' ? $amountValue : 0.0);
-        $newBalance = isset($setBalanceValue) && $setBalanceValue !== '' ? (float) $setBalanceValue : null;
-
-        if ($newBalance !== null) {
-            $update = $database->prepare('UPDATE users SET balance = :balance WHERE id = :id');
-            $update->execute(['balance' => $newBalance, 'id' => $targetId]);
-        } else {
-            $update = $database->prepare('UPDATE users SET balance = balance + :amount WHERE id = :id');
-            $update->execute(['amount' => $amount, 'id' => $targetId]);
-        }
-
-        $read = $database->prepare('SELECT id, username, email, balance FROM users WHERE id = :id LIMIT 1');
-        $read->execute(['id' => $targetId]);
-        $user = $read->fetch();
-
+    if (!$user || !password_verify($password, (string) $user['password_hash'])) {
+        http_response_code(401);
         $response = json_encode([
-            'Error' => null,
-            'Success' => true,
-            'ErrorCode' => null,
-            'Value' => [
-                'id' => (int) ($user['id'] ?? $targetId),
-                'username' => $user['username'] ?? null,
-                'email' => $user['email'] ?? null,
-                'balance' => (float) ($user['balance'] ?? 0.0),
-                'amount' => $amount,
-            ],
-        ], JSON_UNESCAPED_SLASHES);
+            'Error' => 'incorrect username or password',
+            'Success' => false,
+            'ErrorCode' => 'InvalidCredentials',
+            'Value' => null,
+        ]);
         echo encrypt_aes($response, $AES_KEY_DECODED);
         exit;
     }
 
-    $balance = 0.0;
-    $userId = 0;
+    $token = hash('sha256', 'cairo-city:' . $user['id'] . ':' . $user['username']);
+    $refreshToken = hash('sha256', 'cairo-city-refresh:' . $user['id'] . ':' . $user['username']);
+    $profile = [
+        'id' => (int) $user['id'],
+        'Id' => (int) $user['id'],
+        'user_id' => (int) $user['id'],
+        'userId' => (int) $user['id'],
+        'UserId' => (int) $user['id'],
+        'username' => $user['username'],
+        'Username' => $user['username'],
+        'email' => $user['email'],
+        'Email' => $user['email'],
+        'balance' => (float) $user['balance'],
+        'Balance' => (float) $user['balance'],
+    ];
 
-    if ($login !== null && $login !== '') {
-        $query = $database->prepare('SELECT id, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
-        $query->execute(['login' => $login]);
-        $row = $query->fetch();
-        if ($row) {
-            $userId = isset($row['id']) ? (int) $row['id'] : 0;
-            if (isset($row['balance'])) {
-                $balance = (float) $row['balance'];
-            }
-        }
-    }
+    $bearerToken = 'Bearer ' . $token;
+    $loginData = [
+        'userId' => (int) $user['id'],
+        'UserId' => (int) $user['id'],
+        'Id' => (int) $user['id'],
+        'id' => (int) $user['id'],
+        'accessToken' => $token,
+        'AccessToken' => $token,
+        'refreshToken' => $refreshToken,
+        'RefreshToken' => $refreshToken,
+        'expiresIn' => 86400,
+        'ExpiresIn' => 86400,
+        'token' => $token,
+        'Token' => $token,
+        'tokenType' => 'Bearer',
+        'TokenType' => 'Bearer',
+        'Authorization' => $bearerToken,
+        'authorization' => $bearerToken,
+        'user' => $profile,
+        'User' => $profile,
+        'userData' => $profile,
+        'UserData' => $profile,
+        'user_id' => (int) $user['id'],
+    ];
 
     $response = json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
-            [
-                'id' => $userId,
-                'balance' => $balance,
-                'isActive' => true,
-                'Balance' => $balance,
-            ],
+            'RefreshToken' => $refreshToken,
+            'refreshToken' => $refreshToken,
+            'RefreshExpiry' => 86400,
+            'Token' => $token,
+            'token' => $token,
+            'TokenExpiry' => 86400,
+            'UserData' => $profile,
+            'userData' => $profile,
+            'User' => $profile,
+            'user' => $profile,
+            'Question' => null,
+            'Authorization' => $bearerToken,
+            'authorization' => $bearerToken,
+            'tokenType' => 'Bearer',
+            'token_type' => 'Bearer',
+            'accessToken' => $token,
+            'AccessToken' => $token,
+            'refreshToken' => $refreshToken,
+            'expiresIn' => 86400,
+            'ExpiresIn' => 86400,
+            'data' => $loginData,
         ],
     ], JSON_UNESCAPED_SLASHES);
+
     echo encrypt_aes($response, $AES_KEY_DECODED);
 } catch (Throwable $error) {
+    error_log($error->getMessage());
     http_response_code(503);
     $response = json_encode([
-        'Error' => 'balance unavailable',
+        'Error' => 'database unavailable',
         'Success' => false,
         'ErrorCode' => 'ServiceUnavailable',
-        'Value' => []
-    ], JSON_UNESCAPED_SLASHES);
+        'Value' => null,
+    ]);
     echo encrypt_aes($response, $AES_KEY_DECODED);
 }
-exit;
