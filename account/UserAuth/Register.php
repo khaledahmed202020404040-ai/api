@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../db.php';
 
 // AES Encryption Configuration
-$AES_KEY = "XJEL+fp/vXz/uHWiZZwrDA=="; // المفتاح الجديد - نفس الموجود في d.smali
+$AES_KEY = "rsSeRIGfYsedC5YopKeIoA=="; // المفتاح الجديد - نفس الموجود في d.smali
 $AES_KEY_DECODED = base64_decode($AES_KEY);
 
 function encrypt_aes($data, $key) {
