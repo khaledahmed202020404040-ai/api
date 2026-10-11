@@ -9,6 +9,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// Check AppGuid (optional - for compatibility with bytrox.shop)
+$input = array_merge($_GET, $_POST, json_decode(file_get_contents('php://input'), true) ?: []);
+$appGuid = $input['AppGuid'] ?? $input['appGuid'] ?? $input['app_guid'] ?? null;
+// For now, accept any AppGuid or none - can be restricted later
+
 // Database configuration (inline)
 function _database_parse_postgres_url(string $url): array
 {

@@ -9,6 +9,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// Check AppGuid (optional - for compatibility with bytrox.shop)
+$input = array_merge($_GET, $_POST, json_decode(file_get_contents('php://input'), true) ?: []);
+$appGuid = $input['AppGuid'] ?? $input['appGuid'] ?? $input['app_guid'] ?? null;
+// For now, accept any AppGuid or none - can be restricted later
+
 // Generate random ID and password
 $userId = rand(1000000000, 9999999999);
 $password = substr(str_shuffle("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"), 0, 8);
