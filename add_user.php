@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../account/db.php';
+require_once __DIR__ . '/account/db.php';
 
 // AES Encryption Configuration
 $AES_KEY = "rsSeRIGfYsedC5YopKeIoA==";
