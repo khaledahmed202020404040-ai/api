@@ -141,15 +141,16 @@ try {
     $realUserId = (int) $database->lastInsertId();
 
     // Return in the format the app expects
+    // Use realUserId from database, not the random userId
     echo json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
         'Value' => [
-            'id' => $userId,
-            'userId' => $userId,
-            'Id' => $userId,
-            'user_id' => $userId,
+            'id' => $realUserId,
+            'userId' => $realUserId,
+            'Id' => $realUserId,
+            'user_id' => $realUserId,
             'username' => $username,
             'password' => $password,
             'balance' => 1000,
