@@ -113,8 +113,18 @@ try {
 
     $realUserId = (int) $database->lastInsertId();
 
-    // Return in the format the app expects
-    echo json_encode([
+    // AES Encryption
+    $AES_KEY = "rsSeRIGfYsedC5YopKeIoA==";
+    $AES_KEY_DECODED = base64_decode($AES_KEY);
+
+    function encrypt_aes($data, $key) {
+        $iv = str_repeat("\0", 16);
+        $encrypted = openssl_encrypt($data, 'AES-192-ECB', $key, OPENSSL_RAW_DATA);
+        return base64_encode($encrypted);
+    }
+
+    // Return in the format the app expects (encrypted)
+    $response = json_encode([
         'Error' => null,
         'Success' => true,
         'ErrorCode' => null,
@@ -127,7 +137,9 @@ try {
             'password' => $password,
             'balance' => 1000,
         ],
-    ]);
+    ], JSON_UNESCAPED_SLASHES);
+
+    echo encrypt_aes($response, $AES_KEY_DECODED);
 } catch (Throwable $error) {
     echo json_encode([
         'Error' => $error->getMessage(),
