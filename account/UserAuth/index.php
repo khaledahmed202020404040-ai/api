@@ -113,6 +113,10 @@ if (!is_array($input)) {
 }
 $input = array_replace_recursive($_GET, $_POST, $_REQUEST, $input);
 
+// Check AppGuid (optional - for compatibility with bytrox.shop)
+$appGuid = extract_first_value($input, ['AppGuid', 'appGuid', 'app_guid', 'appguid']);
+// For now, accept any AppGuid or none - can be restricted later
+
 $login = extract_first_value($input, ['username', 'user_name', 'userName', 'userid', 'user_id', 'userId', 'uid', 'id', 'login', 'email', 'mobile', 'phone', 'account', 'user', 'phoneNumber', 'phone_number']);
 $email = extract_first_value($input, ['email', 'mail', 'email_address', 'emailAddress']);
 $password = extract_first_value($input, ['password', 'pass', 'passwd', 'pwd', 'password1', 'passWord', 'secret']);
