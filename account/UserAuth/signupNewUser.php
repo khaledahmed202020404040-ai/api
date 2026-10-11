@@ -20,7 +20,7 @@ $password = substr(str_shuffle("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV
 $username = "user" . $userId;
 $email = $username . "@auto.generated";
 
-require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../db.php';
 
 try {
     $database = database();
