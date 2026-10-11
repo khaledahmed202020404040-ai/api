@@ -155,8 +155,10 @@ if ($login === null || trim((string) $login) === '' || $password === null || tri
 
 try {
     $database = database();
-    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
-    $query->execute(['login' => $login]);
+    // Also try with 'user' prefix for backward compatibility
+    $loginWithPrefix = 'user' . $login;
+    $query = $database->prepare('SELECT id, username, email, password_hash, balance FROM users WHERE username = :login OR username = :loginWithPrefix OR email = :login OR CAST(id AS TEXT) = :login LIMIT 1');
+    $query->execute(['login' => $login, 'loginWithPrefix' => $loginWithPrefix]);
     $user = $query->fetch();
 
     if (!$user || !password_verify($password, (string) $user['password_hash'])) {
